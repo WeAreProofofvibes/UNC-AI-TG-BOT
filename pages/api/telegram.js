@@ -1,11 +1,5 @@
 // pages/api/telegram.js
 import TelegramBot from "node-telegram-bot-api";
-import { Groq } from "@groq/groq-sdk";
-
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
 
 // Initialize bot outside of the handler
 let bot;
@@ -64,26 +58,34 @@ if (!bot) {
       // Show typing indicator
       await bot.sendChatAction(chatId, 'typing');
 
-      // Get AI response using Groq
-      const completion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful and street-smart AI assistant. Use casual, urban language but stay professional and informative."
-          },
-          {
-            role: "user",
-            content: userMessage
-          }
-        ],
-        model: "mixtral-8x7b-32768",
-        temperature: 0.7,
-        max_tokens: 1024,
+      // Get AI response using Groq API
+      const response = await fetch('https://api.groq.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful and street-smart AI assistant. Use casual, urban language but stay professional and informative."
+            },
+            {
+              role: "user",
+              content: userMessage
+            }
+          ],
+          model: "mixtral-8x7b-32768",
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
       });
 
-      const response = completion.choices[0]?.message?.content || "My bad, I couldn't process that.";
+      const completion = await response.json();
+      const aiResponse = completion.choices[0]?.message?.content || "My bad, I couldn't process that.";
       
-      await bot.sendMessage(chatId, response);
+      await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
       console.error('Error handling message:', error);
       await bot.sendMessage(chatId, "My bad, something went wrong. Try again later!");
